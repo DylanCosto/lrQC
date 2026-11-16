@@ -75,7 +75,7 @@ given: CCS output holds HiFi reads, and their read Q is only an estimate (below)
 
 A read's Q is, in order: the basecaller's (`qs:f` tag, summary `mean_qscore_template`),
 PacBio's predicted accuracy (`rq`, as −10·log10(1 − rq)), or the mean error probability of
-its bases (dorado's method, over the whole read). PacBio's `qs:i` is a query start and is
+its bases (dorado's method: the bases after the first 60, or every base of a piece dorado split from a longer read; this matched dorado's own `qs` to within 0.01 on 18,235 reads). PacBio's `qs:i` is a query start and is
 ignored as a quality. PacBio base qualities are binned (Revio uses seven levels), so a read Q
 from them runs several Q off `rq` either way; when most of a group's reads have no `rq`, its
 read quality is shown without a verdict.

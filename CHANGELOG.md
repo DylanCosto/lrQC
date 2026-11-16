@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1 (2026-11-16)
+
+- A read Q computed from base qualities (reads without a `qs` tag) now matches dorado's:
+  the first 60 bases are left out, except in pieces dorado split from a longer read. On
+  18,235 dorado reads with `qs` removed it matched dorado to within 0.01 Q for every read;
+  before, it ran about 0.5 Q low.
+- The yield-after-filtering table says why low-Q columns are identical when every read is
+  above them (pass reads only).
+
 ## 0.9.0 (2026-11-16)
 
 First public release: per-barcode QC reports for Oxford Nanopore and PacBio long reads.

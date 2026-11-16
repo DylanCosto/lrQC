@@ -4,6 +4,7 @@
 use std::fmt::Write as _;
 
 use super::{figure, histogram_chart, long_table_wrap, opt, thousands, Page};
+use crate::read::Platform;
 use crate::report::chart::{escape, si, Axis, Bar, Chart, Layer, Units};
 use crate::report::model::Group;
 use crate::report::Report;
@@ -45,6 +46,32 @@ pub(super) fn filter_yield(page: &mut Page, report: &Report, group: &Group) {
             page.push_str("</tr>");
         }
         page.push_str("</table></div>");
+    }
+    // Columns that keep every read look like a bug; say why they match.
+    let all = grid
+        .reads
+        .first()
+        .and_then(|row| row.first())
+        .copied()
+        .unwrap_or(0);
+    let same = grid.reads.first().map_or(0, |row| {
+        row.iter()
+            .skip(1)
+            .take_while(|&&n| n == all && all > 0)
+            .count()
+    });
+    if same > 0 {
+        let filtered = match group.platform {
+            Platform::PacBio => "Reads below the HiFi threshold (<code>fail_reads</code>)",
+            Platform::Ont | Platform::Unknown => {
+                "Reads that MinKNOW or dorado filtered out (<code>fastq_fail</code>, <code>bam_fail</code>)"
+            }
+        };
+        let _ = write!(
+            page,
+            r#"<p class="note">Every read is Q{:.0} or better, so the Q{:.0} to Q{:.0} columns keep them all. {filtered} are not counted unless given.</p>"#,
+            grid.min_qs[same], grid.min_qs[0], grid.min_qs[same]
+        );
     }
 }
 

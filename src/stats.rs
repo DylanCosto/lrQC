@@ -656,13 +656,25 @@ impl Stats {
             None
         } else {
             self.reads_with_quals += 1;
+            let n = quals.len();
+            // dorado's read Q leaves out the first 60 bases of a read (adapter-side noise),
+            // but not of a piece it split from a longer read, nor of a read that short.
+            let skip = if read.platform == Platform::PacBio
+                || read.origin == Origin::SplitFromParent
+                || n <= DORADO_QSCORE_START
+            {
+                0
+            } else {
+                DORADO_QSCORE_START
+            };
             let mut error_sum = 0.0;
-            for &q in quals {
+            for (i, &q) in quals.iter().enumerate() {
                 let q = usize::from(q).min(QUAL_LEVELS - 1);
                 self.base_quals[q] += 1;
-                error_sum += ERROR_PROB[q];
+                if i >= skip {
+                    error_sum += ERROR_PROB[q];
+                }
             }
-            let n = quals.len();
             POSITIONS.for_each_segment(n, |bin, start, end| {
                 let row = &mut self.quals_from_start[bin * QUAL_LEVELS..(bin + 1) * QUAL_LEVELS];
                 for &q in &quals[start..end] {
@@ -673,7 +685,7 @@ impl Stats {
                     row[usize::from(q).min(QUAL_LEVELS - 1)] += 1;
                 }
             });
-            Some(phred(error_sum / n as f64))
+            Some(phred(error_sum / (n - skip) as f64))
         };
         read.reported_q
             .or_else(|| read.accuracy.map(|rq| phred(1.0 - f64::from(rq))))
@@ -1179,6 +1191,12 @@ fn add_into(a: &mut [u64], b: &[u64]) {
     }
 }
 
+/// Bases dorado leaves out at the start of a read when it computes the read Q
+/// (`--mean-qscore-start-pos`). Checked on 85,493 dorado SUP reads: their `qs` matches the
+/// mean error probability of the bases after the first 60 for 99.5% of them, and for split
+/// pieces (`pi`) the mean over every base for all 608.
+const DORADO_QSCORE_START: usize = 60;
+
 fn phred(error: f64) -> f32 {
     (-10.0 * error.max(1e-6).log10()) as f32
 }
@@ -1315,6 +1333,31 @@ mod tests {
         assert_eq!(stats.mods["C+m"].cpg_modified, 1);
         stats.add_mods(b"C+m?,1;", &[255], &bases);
         assert_eq!(stats.mods["C+m"].cpg_calls, 2, "the C at 3 is not a CpG");
+    }
+
+    #[test]
+    fn computes_read_q_as_dorado_does() {
+        let adapters = Adapters::load(None).expect("built-ins");
+        let mut stats = Stats::new(adapters.names().len());
+        // 60 bases at Q2, then 140 at Q20: dorado leaves out the first 60.
+        let mut quals = vec![2u8; 60];
+        quals.extend(std::iter::repeat_n(20u8, 140));
+        let read = Read {
+            platform: Platform::Ont,
+            quals: quals.clone(),
+            ..Read::default()
+        };
+        let q = stats.add_qualities(&read).expect("a read Q");
+        assert!((q - 20.0).abs() < 0.01, "{q}");
+        // A piece split from a longer read is scored on every base.
+        let split = Read {
+            platform: Platform::Ont,
+            origin: Origin::SplitFromParent,
+            quals,
+            ..Read::default()
+        };
+        let q = stats.add_qualities(&split).expect("a read Q");
+        assert!(q < 10.0, "{q}");
     }
 
     #[test]

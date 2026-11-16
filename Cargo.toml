@@ -1,6 +1,6 @@
 [package]
 name = "lrqc"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 rust-version = "1.91"
 description = "Per-barcode QC reports for Oxford Nanopore and PacBio long reads"
