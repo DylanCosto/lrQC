@@ -1,0 +1,3 @@
+# The benchmark harness (Python) runs other QC tools beside lrqc; it is not part of lrqc,
+# so it is left out of GitHub's language statistics.
+bench/** linguist-documentation
