@@ -21,7 +21,7 @@ Download a Linux (x86_64) binary from the
 [releases](https://github.com/DylanCosto/lrQC/releases), or build it with Rust 1.91 or newer:
 
 ```sh
-cargo install --git https://github.com/DylanCosto/lrQC
+cargo install --locked lrqc
 ```
 
 ## Quick start
